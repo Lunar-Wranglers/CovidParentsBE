@@ -347,9 +347,7 @@ class DeleteQuiz(graphene.Mutation):
             return Quiz(
                 id=quiz.id
             )
-
-
-
+            
 class Mutation(graphene.ObjectType):
     create_link = CreateLink.Field()
     update_link = UpdateLink.Field()
