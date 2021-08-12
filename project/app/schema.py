@@ -6,6 +6,7 @@ from users.schema import UserType
 from .models import Link
 from .models import Image
 from .models import Post
+from .models import Quiz
 
 class LinkType(DjangoObjectType):
     class Meta:
@@ -17,6 +18,9 @@ class ImageType(DjangoObjectType):
 class PostType(DjangoObjectType):
     class Meta:
         model = Post
+class QuizType(DjangoObjectType):
+    class Meta:
+        model = Quiz
 
 class Query(graphene.ObjectType):
     links = graphene.List(LinkType)
@@ -24,6 +28,8 @@ class Query(graphene.ObjectType):
     all_images = graphene.List(ImageType)
     all_posts = graphene.List(PostType)
     my_posts = graphene.List(PostType)
+    all_quizzes = graphene.List(QuizType)
+    my_quizzes = graphene.List(QuizType)
     image = graphene.Field(ImageType, id=graphene.Int(required=True))
 
 
@@ -47,6 +53,13 @@ class Query(graphene.ObjectType):
             return Post.objects.none()
         else:
             return Post.objects.filter(owner=info.context.user)
+    def resolve_all_quizzes(self, info):
+        return Quiz.objects.all()
+    def resolve_my_quizzes(self, info):
+        if not info.context.user.is_authenticated:
+            return Quiz.objects.none()
+        else:
+            return Quiz.objects.filter(owner=info.context.user)
 
 class CreateLink(graphene.Mutation):
     id = graphene.ID()
@@ -87,32 +100,35 @@ class UpdateLink(graphene.Mutation):
         # get the user object from the request (info.context)
         user = info.context.user
         # This provides a query set of the values of all of the users owned links
-        owner_links = Link.objects.filter(owner=info.context.user).values()
-        # print(owner_links)
+        owner = Link.objects.filter(owner=info.context.user, id=id).values_list('owner_id', flat=True)
+        # print(list(owner)[0])
         # iterate through the links
-        for owner in owner_links:
-            # first we extract the owner as a list
-            owner = list(owner.values())
-            # the owner is the last value in the list
-            owned_id = (owner[0])
+        # for owner in owner_links:
+        #     # first we extract the owner as a list
+        #     owner = list(owner.values())
+        #     # the owner is the last value in the list
+        #     owned_id = (owner[0])
 
-            # print([owned_id, int(id)])
-            # create a list to store the values of the id in the list of owned ids and the id passed in
-            is_owner = (owned_id, int(id))
-            # compare the id of the owned links to the id passed in and if the user is logged in
-            if is_owner[0] == is_owner[1] and user.is_authenticated:
+        #     # print([owned_id, int(id)])
+        #     # create a list to store the values of the id in the list of owned ids and the id passed in
+        #     is_owner = (owned_id, int(id))
+        #     # compare the id of the owned links to the id passed in and if the user is logged in
+        #     if is_owner[0] == is_owner[1] and user.is_authenticated:
                 # print('authorized')
                 # mutate the link based on the arguments below
-                link = Link(id=id, url=url, description=description, owner=user)
-                # save the link
-                link.save()
-                # then return it
-                return UpdateLink(
-                    id=link.id,
-                    url=link.url,
-                    description=link.description,
-                    owner=link.owner
-                )
+        if len(list(owner)) == 0:
+            raise Exception('Not authorized to update this link')
+        elif list(owner)[0] == user.id:
+            link = Link(id=id, url=url, description=description, owner=user)
+            # save the link
+            link.save()
+            # then return it
+            return UpdateLink(
+                id=link.id,
+                url=link.url,
+                description=link.description,
+                owner=link.owner
+            )
         raise Exception('Not authorized to update this link. Please sign in or try a different link.')
 class DeleteLink(graphene.Mutation):
     id = graphene.Int()
@@ -121,31 +137,224 @@ class DeleteLink(graphene.Mutation):
         id = graphene.Int()
 
     def mutate(self, info, id):
+        # get the user object from the request (info.context)
         user = info.context.user
-        # This provides a query set of all of the users owned links
-        owner_links = Link.objects.filter(owner=info.context.user).values()
-        # print(owner_links)
-        # iterate through the list to check each value
-        for owner in owner_links:
-            # first we extract the owner as a list
-            owner = list(owner.values())
-            # the owner is the last value in the list
-            owned_id = (owner[0])
+        # This provides a query set of the values of all of the users owned links
+        owner = Link.objects.filter(owner=info.context.user, id=id).values_list('owner_id', flat=True)
+        # print(list(owner)[0])
+        # iterate through the links
+        # for owner in owner_links:
+        #     # first we extract the owner as a list
+        #     owner = list(owner.values())
+        #     # the owner is the last value in the list
+        #     owned_id = (owner[0])
 
-            print([owned_id, int(id)])
-            # create a list to store the values of the id in the list of owned ids and the id passed in
-            is_owner = [owned_id, int(id)]
-            # compare the id of the owned links to the id passed in and if the user is logged in
-            if (is_owner[0] == is_owner[1]) and user.is_authenticated:
-                link = Link(id=id)
-                link.delete()
+        #     # print([owned_id, int(id)])
+        #     # create a list to store the values of the id in the list of owned ids and the id passed in
+        #     is_owner = (owned_id, int(id))
+        #     # compare the id of the owned links to the id passed in and if the user is logged in
+        #     if is_owner[0] == is_owner[1] and user.is_authenticated:
+                # print('authorized')
+                # mutate the link based on the arguments below
+        if len(list(owner)) == 0:
+            raise Exception('Not authorized to delete this link')
+        elif list(owner)[0] == user.id:
+            link = Link(id=id)
+            link.delete()
 
-                return DeleteLink(
-                    id=link.id      
-                )
+            return DeleteLink(
+                id=link.id      
+            )
         raise Exception('Not authorized to delete this link. Please sign in or try a different link.')
+class CreatePost(graphene.Mutation):
+    id = graphene.ID()
+    title = graphene.String()
+    description = graphene.String()
+    image = graphene.Field(ImageType)
+    updated_at = graphene.DateTime()
+    owner = graphene.Field(UserType)
 
+    class Arguments:
+        title = graphene.String()
+        description = graphene.String()
+        
+    def mutate(self, info, title, description):
+        user = info.context.user
+        files = info.context.FILES['image']
+        post = Post(title=title, description=description, image=files, owner=user)
+        if user.is_authenticated:
+            post.save()
+            return CreatePost(
+                id=post.id,
+                title=post.title,
+                description=post.description,
+                image=post.image,
+                updated_at=post.updated_at,
+                owner=post.owner
+            )
+class UpdatePost(graphene.Mutation):
+    id = graphene.ID()
+    title = graphene.String()
+    description = graphene.String()
+    image = graphene.String()
+    updated_at = graphene.DateTime()
+    owner = graphene.Field(UserType)
+
+    class Arguments:
+        id = graphene.ID()
+        title = graphene.String()
+        description = graphene.String()
+        
+    def mutate(self, info, id, title, description):
+        user = info.context.user
+        files = info.context.FILES['image']
+        owner = Post.objects.filter(owner=user, id=id).values_list('owner_id', flat=True)
+        if len(list(owner)) == 0:
+            raise Exception('Not authorized to update this post')
+        elif list(owner)[0] == user.id:
+            post = Post(id=id, title=title, description=description, image=files, owner=user)
+            post.save()
+            return UpdatePost(
+                id=post.id,
+                title=post.title,
+                description=post.description,
+                image=post.image,
+                updated_at=post.updated_at,
+                owner=post.owner
+            )        
+class DeletePost(graphene.Mutation):
+    id = graphene.ID()
+
+    class Arguments:
+        id = graphene.ID()
+        
+    def mutate(self, info, id):
+        user = info.context.user
+        owner = Post.objects.filter(owner=user, id=id).values_list('owner_id', flat=True)
+        if len(list(owner)) == 0:
+            raise Exception('Not authorized to delete this post')
+        elif list(owner)[0] == user.id:
+            post = Post(id=id)
+            post.delete()
+            return DeletePost(
+                id=post.id
+            )        
+class CreateQuiz(graphene.Mutation):
+    id = graphene.ID()
+    question = graphene.String()
+    option_one = graphene.String()
+    option_two = graphene.String()
+    option_three = graphene.String()
+    option_four = graphene.String()
+    answer = graphene.String()
+    correct = graphene.Boolean()
+    owner = graphene.Field(UserType)
+
+    class Arguments:
+        question = graphene.String()
+        option_one = graphene.String()
+        option_two = graphene.String()
+        option_three = graphene.String()
+        option_four = graphene.String()
+        answer = graphene.String()
+    def mutate(self, info, question, option_one, option_two, option_three, option_four, answer):
+        user = info.context.user
+        if user.is_authenticated:
+            quiz = Quiz(
+                question=question, 
+                option_one=option_one,
+                option_two=option_two,
+                option_three=option_three,
+                option_four=option_four,
+                answer=answer,
+                owner=user
+                )
+            quiz.save()
+            return CreateQuiz(
+                id=quiz.id,
+                question=quiz.question, 
+                option_one=quiz.option_one,
+                option_two=quiz.option_two,
+                option_three=quiz.option_three,
+                option_four=quiz.option_four,
+                answer=quiz.answer,
+                correct=quiz.correct,
+                owner=quiz.owner
+                )
+class UpdateQuiz(graphene.Mutation):
+    id = graphene.ID()
+    question = graphene.String()
+    option_one = graphene.String()
+    option_two = graphene.String()
+    option_three = graphene.String()
+    option_four = graphene.String()
+    answer = graphene.String()
+    correct = graphene.Boolean()
+    owner = graphene.Field(UserType)
+
+    class Arguments:
+        id = graphene.ID()
+        question = graphene.String()
+        option_one = graphene.String()
+        option_two = graphene.String()
+        option_three = graphene.String()
+        option_four = graphene.String()
+        answer = graphene.String()
+    def mutate(self, info, id, question, option_one, option_two, option_three, option_four, answer):
+        user = info.context.user
+        quiz = Quiz.objects.filter(owner=user, id=id).values_list('owner_id', flat=True)
+        owner = list(quiz)[0]
+        print(owner)
+        if len(quiz) == 0:
+            raise Exception('You are not authorized to update this quiz')
+        elif owner == user.id:
+            quiz = Quiz(
+                id=id,
+                question=question, 
+                option_one=option_one,
+                option_two=option_two,
+                option_three=option_three,
+                option_four=option_four,
+                answer=answer,
+                owner=user 
+                )
+        return UpdateQuiz(
+            id=quiz.id,
+            question=quiz.question, 
+            option_one=quiz.option_one,
+            option_two=quiz.option_two,
+            option_three=quiz.option_three,
+            option_four=quiz.option_four,
+            answer=quiz.answer,
+            correct=quiz.correct,
+            owner=quiz.owner
+        )
+class DeleteQuiz(graphene.Mutation):
+    id = graphene.ID()
+
+    class Arguments:
+        id = graphene.ID()
+
+    def mutate(self, info, id):
+        user = info.context.user
+        quiz = Quiz.objects.filter(owner=user, id=id).values_list('owner_id', flat=True)
+        owner = list(quiz)[0]
+        if len(quiz) == 0:
+            raise Exception('You are not authorized to update this quiz')
+        elif owner == user.id:
+            quiz = Quiz(id=id)
+            quiz.delete()
+            return Quiz(
+                id=quiz.id
+            )
+            
 class Mutation(graphene.ObjectType):
     create_link = CreateLink.Field()
     update_link = UpdateLink.Field()
     delete_link = DeleteLink.Field()
+    create_post = CreatePost.Field()
+    update_post = UpdatePost.Field()
+    delete_post = DeletePost.Field()
+    create_quiz = CreateQuiz.Field()
+    update_quiz = UpdateQuiz.Field()
+    delete_quiz = DeleteQuiz.Field()
