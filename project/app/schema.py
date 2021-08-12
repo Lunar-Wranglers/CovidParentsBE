@@ -144,8 +144,36 @@ class DeleteLink(graphene.Mutation):
                     id=link.id      
                 )
         raise Exception('Not authorized to delete this link. Please sign in or try a different link.')
+class CreatePost(graphene.Mutation):
+    title = graphene.String()
+    description = graphene.String()
+    image = graphene.Field(ImageType)
+    created_at = graphene.DateTime()
+    updated_at = graphene.DateTime()
+    owner = graphene.Field(UserType)
+
+    class Arguments:
+        title = graphene.String()
+        description = graphene.String()
+        image = graphene.Field(ImageType)
+        
+    def mutate(self, info, title, description, image):
+        user = info.context.user
+        post = Post(title=title, description=description, image=image, owner=user)
+        if post.is_valid and user.is_authenticated:
+            post.save()
+            return CreatePost(
+                title=post.title,
+                description=post.description,
+                image=post.image,
+                created_at=post.created_at,
+                updated_at=post.updated_at,
+                owner=post.owner
+            )
+        
 
 class Mutation(graphene.ObjectType):
     create_link = CreateLink.Field()
     update_link = UpdateLink.Field()
     delete_link = DeleteLink.Field()
+    create_post = CreatePost.Field()
