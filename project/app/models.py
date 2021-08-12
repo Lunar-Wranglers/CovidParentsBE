@@ -31,3 +31,12 @@ class Post(models.Model):
     def __str__(self):
         """Return image"""
         return self.image.url
+class Quiz(models.Model):
+    question = models.CharField(max_length=1000)
+    option_one = models.TextField(blank=True)
+    option_two = models.TextField(blank=True)
+    option_three = models.TextField(blank=True)
+    option_four = models.TextField(blank=True)
+    answer = models.TextField(blank=True)
+    correct = models.BooleanField(default=False)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.CASCADE)

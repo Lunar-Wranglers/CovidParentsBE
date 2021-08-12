@@ -6,6 +6,7 @@ from users.schema import UserType
 from .models import Link
 from .models import Image
 from .models import Post
+from .models import Quiz
 
 class LinkType(DjangoObjectType):
     class Meta:
@@ -17,6 +18,9 @@ class ImageType(DjangoObjectType):
 class PostType(DjangoObjectType):
     class Meta:
         model = Post
+class QuizType(DjangoObjectType):
+    class Meta:
+        model = Quiz
 
 class Query(graphene.ObjectType):
     links = graphene.List(LinkType)
@@ -24,6 +28,8 @@ class Query(graphene.ObjectType):
     all_images = graphene.List(ImageType)
     all_posts = graphene.List(PostType)
     my_posts = graphene.List(PostType)
+    all_quizzes = graphene.List(QuizType)
+    my_quizzes = graphene.List(QuizType)
     image = graphene.Field(ImageType, id=graphene.Int(required=True))
 
 
@@ -47,6 +53,13 @@ class Query(graphene.ObjectType):
             return Post.objects.none()
         else:
             return Post.objects.filter(owner=info.context.user)
+    def resolve_all_quizzes(self, info):
+        return Quiz.objects.all()
+    def resolve_my_quizzes(self, info):
+        if not info.context.user.is_authenticated:
+            return Quiz.objects.none()
+        else:
+            return Quiz.objects.filter(owner=info.context.user)
 
 class CreateLink(graphene.Mutation):
     id = graphene.ID()
@@ -226,6 +239,116 @@ class DeletePost(graphene.Mutation):
             return DeletePost(
                 id=post.id
             )        
+class CreateQuiz(graphene.Mutation):
+    id = graphene.ID()
+    question = graphene.String()
+    option_one = graphene.String()
+    option_two = graphene.String()
+    option_three = graphene.String()
+    option_four = graphene.String()
+    answer = graphene.String()
+    correct = graphene.Boolean()
+    owner = graphene.Field(UserType)
+
+    class Arguments:
+        question = graphene.String()
+        option_one = graphene.String()
+        option_two = graphene.String()
+        option_three = graphene.String()
+        option_four = graphene.String()
+        answer = graphene.String()
+    def mutate(self, info, question, option_one, option_two, option_three, option_four, answer):
+        user = info.context.user
+        if user.is_authenticated:
+            quiz = Quiz(
+                question=question, 
+                option_one=option_one,
+                option_two=option_two,
+                option_three=option_three,
+                option_four=option_four,
+                answer=answer,
+                owner=user
+                )
+            quiz.save()
+            return CreateQuiz(
+                id=quiz.id,
+                question=quiz.question, 
+                option_one=quiz.option_one,
+                option_two=quiz.option_two,
+                option_three=quiz.option_three,
+                option_four=quiz.option_four,
+                answer=quiz.answer,
+                correct=quiz.correct,
+                owner=quiz.owner
+                )
+class UpdateQuiz(graphene.Mutation):
+    id = graphene.ID()
+    question = graphene.String()
+    option_one = graphene.String()
+    option_two = graphene.String()
+    option_three = graphene.String()
+    option_four = graphene.String()
+    answer = graphene.String()
+    correct = graphene.Boolean()
+    owner = graphene.Field(UserType)
+
+    class Arguments:
+        id = graphene.ID()
+        question = graphene.String()
+        option_one = graphene.String()
+        option_two = graphene.String()
+        option_three = graphene.String()
+        option_four = graphene.String()
+        answer = graphene.String()
+    def mutate(self, info, id, question, option_one, option_two, option_three, option_four, answer):
+        user = info.context.user
+        quiz = Quiz.objects.filter(owner=user, id=id).values_list('owner_id', flat=True)
+        owner = list(quiz)[0]
+        print(owner)
+        if len(quiz) == 0:
+            raise Exception('You are not authorized to update this quiz')
+        elif owner == user.id:
+            quiz = Quiz(
+                id=id,
+                question=question, 
+                option_one=option_one,
+                option_two=option_two,
+                option_three=option_three,
+                option_four=option_four,
+                answer=answer,
+                owner=user 
+                )
+        return UpdateQuiz(
+            id=quiz.id,
+            question=quiz.question, 
+            option_one=quiz.option_one,
+            option_two=quiz.option_two,
+            option_three=quiz.option_three,
+            option_four=quiz.option_four,
+            answer=quiz.answer,
+            correct=quiz.correct,
+            owner=quiz.owner
+        )
+class DeleteQuiz(graphene.Mutation):
+    id = graphene.ID()
+
+    class Arguments:
+        id = graphene.ID()
+
+    def mutate(self, info, id):
+        user = info.context.user
+        quiz = Quiz.objects.filter(owner=user, id=id).values_list('owner_id', flat=True)
+        owner = list(quiz)[0]
+        if len(quiz) == 0:
+            raise Exception('You are not authorized to update this quiz')
+        elif owner == user.id:
+            quiz = Quiz(id=id)
+            quiz.delete()
+            return Quiz(
+                id=quiz.id
+            )
+
+
 
 class Mutation(graphene.ObjectType):
     create_link = CreateLink.Field()
@@ -234,3 +357,6 @@ class Mutation(graphene.ObjectType):
     create_post = CreatePost.Field()
     update_post = UpdatePost.Field()
     delete_post = DeletePost.Field()
+    create_quiz = CreateQuiz.Field()
+    update_quiz = UpdateQuiz.Field()
+    delete_quiz = DeleteQuiz.Field()
