@@ -158,7 +158,6 @@ class CreatePost(graphene.Mutation):
     title = graphene.String()
     description = graphene.String()
     image = graphene.Field(ImageType)
-    created_at = graphene.DateTime()
     updated_at = graphene.DateTime()
     owner = graphene.Field(UserType)
 
@@ -177,7 +176,6 @@ class CreatePost(graphene.Mutation):
                 title=post.title,
                 description=post.description,
                 image=post.image,
-                created_at=post.created_at,
                 updated_at=post.updated_at,
                 owner=post.owner
             )
@@ -185,8 +183,7 @@ class UpdatePost(graphene.Mutation):
     id = graphene.ID()
     title = graphene.String()
     description = graphene.String()
-    image = graphene.Field(ImageType)
-    created_at = graphene.DateTime()
+    image = graphene.String()
     updated_at = graphene.DateTime()
     owner = graphene.Field(UserType)
 
@@ -195,23 +192,39 @@ class UpdatePost(graphene.Mutation):
         title = graphene.String()
         description = graphene.String()
         
-    def mutate(self, info, title, description):
+    def mutate(self, info, id, title, description):
         user = info.context.user
         files = info.context.FILES['image']
-        owner = Post.objects.filter(owner=user, id=id).values_list('id', flat=True)
+        owner = Post.objects.filter(owner=user, id=id).values_list('owner_id', flat=True)
         if len(list(owner)) == 0:
             raise Exception('Not authorized to update this post')
         elif list(owner)[0] == user.id:
-            post = Post(title=title, description=description, image=files, owner=user)
+            post = Post(id=id, title=title, description=description, image=files, owner=user)
             post.save()
-            return CreatePost(
+            return UpdatePost(
                 id=post.id,
                 title=post.title,
                 description=post.description,
                 image=post.image,
-                created_at=post.created_at,
                 updated_at=post.updated_at,
                 owner=post.owner
+            )        
+class DeletePost(graphene.Mutation):
+    id = graphene.ID()
+
+    class Arguments:
+        id = graphene.ID()
+        
+    def mutate(self, info, id):
+        user = info.context.user
+        owner = Post.objects.filter(owner=user, id=id).values_list('owner_id', flat=True)
+        if len(list(owner)) == 0:
+            raise Exception('Not authorized to delete this post')
+        elif list(owner)[0] == user.id:
+            post = Post(id=id)
+            post.delete()
+            return DeletePost(
+                id=post.id
             )        
 
 class Mutation(graphene.ObjectType):
@@ -219,3 +232,5 @@ class Mutation(graphene.ObjectType):
     update_link = UpdateLink.Field()
     delete_link = DeleteLink.Field()
     create_post = CreatePost.Field()
+    update_post = UpdatePost.Field()
+    delete_post = DeletePost.Field()
