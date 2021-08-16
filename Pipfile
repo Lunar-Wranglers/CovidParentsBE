@@ -14,7 +14,7 @@ dj-database-url = "*"
 django = "==3.0"
 whitenoise = {extras = ["brotli"], version = "*"}
 psycopg2-binary = "*"
-
+graphene-django = "*"
 
 [requires]
 python_version = "3.8"
