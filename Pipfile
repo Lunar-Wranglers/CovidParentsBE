@@ -15,6 +15,7 @@ django = "==3.0"
 whitenoise = {extras = ["brotli"], version = "*"}
 psycopg2-binary = "*"
 graphene-django = "*"
+pillow = "*"
 
 [requires]
 python_version = "3.8"
