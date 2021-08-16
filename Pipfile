@@ -12,7 +12,6 @@ django-cors-headers = "*"
 python-dotenv = "*"
 dj-database-url = "*"
 django = "==3.0"
-gunicorn = "*"
 whitenoise = {extras = ["brotli"], version = "*"}
 psycopg2-binary = "*"
 
