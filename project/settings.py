@@ -20,6 +20,30 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
+# Determine if we are on local or production
+if os.getenv('ENV') == 'development':
+  # If we are on development, use the `DB_NAME_DEV` value
+  # from the .env file as the database name
+  DB_NAME = os.getenv('DB_NAME_DEV')
+  DB = {
+      'ENGINE': 'django.db.backends.postgresql',
+      'NAME': DB_NAME,
+  }
+  # Set debug to true
+  DEBUG = True
+  # Only allow locally running client at port 7165 for CORS
+  CORS_ORIGIN_WHITELIST = ['http://localhost:7165']
+else:
+  # If we are on production, use the dj_database_url package
+  # to locate the database based on Heroku setup
+  DB = dj_database_url.config()
+  # Set debug to false
+  DEBUG = False
+  # Only allow the `CLIENT_ORIGIN` for CORS
+  CORS_ORIGIN_WHITELIST = [
+    os.getenv('CLIENT_ORIGIN')
+  ]
+
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET')
