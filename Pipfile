@@ -13,7 +13,7 @@ python-dotenv = "*"
 dj-database-url = "*"
 django = "==3.0"
 whitenoise = {extras = ["brotli"], version = "*"}
-psycopg2-binary = "*"
+psycopg2-binary = "===2.8.6"
 graphene-django = "*"
 pillow = "*"
 
